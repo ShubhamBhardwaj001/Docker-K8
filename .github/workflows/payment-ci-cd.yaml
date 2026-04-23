@@ -1,0 +1,52 @@
+name: Payment App CI/CD
+
+on:
+  push:
+    paths:
+      - payment-app/**
+    branches:
+      - dev
+      - load
+      - prod
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: payment-app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<ACCOUNT>:role/GitHubEKSRole
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password |
+          docker login --username AWS \
+            --password-stdin <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com
+        # ECR is AWS container registery where we push our images so that it can be available by EKS.
+
+      - name: Build Image
+        run: |
+          docker build -t $ECR_REPO:${{ github.sha }} ./payment-app
+          docker tag $ECR_REPO:${{ github.sha }} \
+            <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPO:${{ github.sha }}
+
+      - name: Push Image
+        run: |
+          docker push <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPO:${{ github.sha }}
+
+      - name: Update Deployment
+        run: |
+          ENV=${{ github.ref_name }}
+          kubectl set image deployment/payment-app \
+            payment-app=<ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPO:${{ github.sha }} \
+            -n $ENV

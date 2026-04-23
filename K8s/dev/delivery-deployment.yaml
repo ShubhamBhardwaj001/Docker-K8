@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-app
+  namespace: dev
+
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  selector:
+    matchLabels:
+      app: delivery-app
+
+  template:
+    metadata:
+      labels:
+        app: delivery-app
+    spec:
+      containers:
+        - name: delivery-app
+          image: <AWS_ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/delivery-app:IMAGE_TAG
+          ports:
+            - containerPort: 3000
